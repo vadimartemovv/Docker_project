@@ -29,7 +29,7 @@ The shell scripts help to automate building and running process.
 
 To run the code we need to execute shell scripts as following:
 
-To run the docker container in the first place we need `docker-ce` and `nvidia-docker` in the host:
+To run the docker container in the first place we need `docker-ce` and  in the host. If you don't have it, run the following command:
 	
 	bash install_docker.sh
 
