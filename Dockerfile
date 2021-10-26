@@ -7,8 +7,8 @@ RUN rm Anaconda3-2.5.0-Linux-x86_64.sh
 ENV PATH=/anaconda3/bin:${PATH}
 
 RUN conda install python=3.6.5
-RUN conda install tensorflow=1.9.0
-RUN conda install tensorflow-gpu=1.9.0 cudatoolkit=9.0
+RUN conda install tensorflow
+RUN conda install tensorflow-gpu
 RUN mkdir /usr/ && cd /usr/ && cp ../pointwise /usr/
 
 WORKDIR /usr/pointwise/
