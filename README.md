@@ -1,64 +1,59 @@
 # Pointwise Convolutional Neural Networks
 
-This is the release of the code for the paper `Pointwise Convolutional Neural Networks' in CVPR 2018. 
+This repository is not an original implementation of the work, but a refactored codebase for the paper `Pointwise Convolutional Neural Networks' in CVPR 2018. 
+
+#Team
+
+Anton Zubeknin, Georgy Mkrtchyan, Vadim Artemov
+
+## Structure
+
+‘data’ is a folder with a link to the dataset for neural network training. The required data is also downloaded there.
+
+‘tf_ops/conv3p’ contains ‘.cpp’ and ‘.cu’ files for a custom convolution operator, which is implemented with C++ and CUDA.
+
+‘Dockerfile’ is required to build a docker image to run this code in a container.
+
+The ModelNet40 neural network is implemented in files ‘pointcnn2_acsd.py’, ‘modelnet_provider.py’; ‘selu.py’ and ‘util.py’ contain additional methods for neural network initialization and running.
+
+Python scripts ‘train_modelnet40_acsd.py’ and ‘eval_modelnet40_acsd.py’ perform training and evaluating the model.
+
+JSON-file ‘param.json’ contains parameters for ModelNet40 initialization. You can change them there for your setup.
+
+Python script ‘model_testing.py’ performs additional unit tests for neural network.
+
+The shell scripts help to automate building and running process.
+
 
 ## Usage
 
-The code is tested in latest Ubuntu 18.04 LTS with CUDA 9.2 and Tensorflow 1.9. 
+To run the code we need to execute shell scripts as following:
 
-First, we need to compile the convolution operator as follows:
+To run the docker container in the first place we need ‘docker-ce’ and ‘nvidia-docker’ in the host:
+	
+bash install_docker.sh
 
-    cd tf_ops/conv3p/
-    chmod 777 tf_conv3p_compile.sh
-    ./tf_conv3p_compile.sh -a
+Then, we proceed with building docker image according to procedures stated in the ‘Dockerfile’. Shell script ‘build_docker.sh’ does that:
 
-The result is a dynamic library file named `tf_conv3p.so`. The Python training and evaluation code loads this library for pointwise convolution. 
-By default, the library contains both a CPU and a GPU implementation of the convolution operator. The `use_gpu` flag in `param.json` can be set to `true` to enable the convolution on the GPU. 
+	bash build_docker.sh
 
-To train object classification, execute 
+Next, we should run the builded docker image:
 
-    python train_modelnet40_acsd.py [epoch]
+	bash run_docker.sh
 
-To evaluate, execute 
+FInally, we can run the neural network in the container with
 
-    python eval_modelnet40_acsd.py [epoch] 
-   
-By default, `epoch` is 0 if it is not passed as a parameter to the above command. During training, the network is saved after each epoch. You can resume the training if the network was saved before. Just pass the epoch number to the training command.
+	bash run_container.sh
 
-Similar code structure is adopted for scene segmentation task. For this task, we also provide a re-implementation of PointNet in PyTorch based on the open source implementation by [fxia22](https://github.com/fxia22/pointnet.pytorch).
+‘run_container.sh’ downloads the necessary dataset for ModelNet40 with the script ‘download.sh’, then the required custom convolution operator is builded with ‘tf_ops/conv3p/compile.sh’. 
 
-## Training Data 
+The building of the original ‘.cpp’ and ‘.cu’ files is done with help of corresponding ‘makefile’. 
 
-- [ModelNet40](https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip): 450 MB.
-- [SceneNN Segmentation](https://drive.google.com/open?id=1PkP6m2mxCfCh_u3SnzLZod7J1zpzD6t4): 5.5 GB. With 76 scenes, re-annotated with NYU-D v2 40 classes. 56 scenes for training and 20 scenes for testing.  
-- [S3DIS Segmentation](https://shapenet.cs.stanford.edu/media/indoor3d_sem_seg_hdf5_data.zip): 1.6 GB.
-
-## Troubleshooting 
-
-If you are using Tensorflow 1.4, you might want to try compiling with `tf_conv3p_compile_tf14.sh` instead. It fixes some include paths due to `nsync_cv.h`, and set the flag `_GLIBCXX_USE_CXX11_ABI=0` to make it compatible to libraries compiled with GCC version earlier than 5.1. 
-
-## Performance
-
-As this is a custom convolution operator we built with minimum optimization tricks that we know, you might find it running more slowly than those Tensorflow built-in operators. 
-Despite that, the experiments were done on NVIDIA GTX 1070, GTX 1080, and Titan X (first generation) without big issues. 
-
-It will take hours or 1-2 days depending on your setup to finish training for object recognition. For scene segmentation, it might take longer. 
-
-## Dependencies
-
-This code includes the following third party libraries and data:
-
-- Scaled exponential linear units (SeLU) for self-normalization in neural network.
-
-- ModelNet40 data from PointNet
-
-- Some other utility code from PointNet
-
-- h5py
+Finally, after everything is downloaded and compiled, ‘exec_train_modelnet40_acsd.sh’ is run to train the ModelNet40 network and ‘exec_eval_modelnet40_acsd.sh’ for evaluating it.
 
 ## Citation 
 
-Please cite our [paper](https://arxiv.org/abs/1712.05245)
+Please cite [original paper](https://arxiv.org/abs/1712.05245).
   
     @inproceedings{hua-pointwise-cvpr18,
         title = {Pointwise Convolutional Neural Networks},
@@ -67,10 +62,6 @@ Please cite our [paper](https://arxiv.org/abs/1712.05245)
         year = {2018}
     }
 
-if you find this useful for your work. 
 
-## Future work 
 
-We made this simple operator with the hope that existing techniques in 2D image understanding tasks can be brought to 3D in a more straightforward manner. More research along this direction is encouraged. 
 
-Please contact the authors at binhson.hua@gmail.com if you have any queries. 
