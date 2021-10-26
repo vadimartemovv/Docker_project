@@ -7,6 +7,7 @@ import util
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
+
 def shuffle_data(data, labels):
     """ Shuffle data and labels.
         Input:
@@ -21,7 +22,7 @@ def shuffle_data(data, labels):
 
 
 def rotate_point_cloud(batch_data):
-    """ Randomly rotate the point clouds to augument the dataset
+    """ Randomly rotate the point clouds to argument the dataset
         rotation is per shape based along up direction
         Input:
           BxNx3 array, original batch of point clouds
@@ -33,9 +34,11 @@ def rotate_point_cloud(batch_data):
         rotation_angle = np.random.uniform() * 2 * np.pi
         cosval = np.cos(rotation_angle)
         sinval = np.sin(rotation_angle)
+
         rotation_matrix = np.array([[cosval, 0, sinval],
                                     [0, 1, 0],
                                     [-sinval, 0, cosval]])
+
         shape_pc = batch_data[k, ...]
         rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
     return rotated_data
@@ -50,12 +53,13 @@ def rotate_point_cloud_by_angle(batch_data, rotation_angle):
     """
     rotated_data = np.zeros(batch_data.shape, dtype=np.float32)
     for k in range(batch_data.shape[0]):
-        #rotation_angle = np.random.uniform() * 2 * np.pi
         cosval = np.cos(rotation_angle)
         sinval = np.sin(rotation_angle)
+
         rotation_matrix = np.array([[cosval, 0, sinval],
                                     [0, 1, 0],
                                     [-sinval, 0, cosval]])
+
         shape_pc = batch_data[k, ...]
         rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
     return rotated_data
@@ -68,62 +72,62 @@ def jitter_point_cloud(batch_data, sigma=0.01, clip=0.05):
         Return:
           BxNx3 array, jittered batch of point clouds
     """
-    B, N, C = batch_data.shape
+    bsize, nsize, chsize = batch_data.shape
     assert(clip > 0)
-    jittered_data = np.clip(sigma * np.random.randn(B, N, C), -1*clip, clip)
+    jittered_data = np.clip(sigma * np.random.randn(bsize, nsize, chsize), -1*clip, clip)
     jittered_data += batch_data
     return jittered_data
 
+
 def getDataFiles(list_filename):
     return [line.rstrip() for line in open(list_filename)]
+
 
 def load_h5(h5_filename):
     f = h5py.File(h5_filename)
     data = f['data'][:]
     label = f['label'][:]
-    return (data, label)
+    return data, label
+
 
 def loadDataFile(filename):
     return load_h5(filename)
+
 
 def load_h5_data_label_seg(h5_filename):
     f = h5py.File(h5_filename)
     data = f['data'][:]
     label = f['label'][:]
     seg = f['pid'][:]
-    return (data, label, seg)
+    return data, label, seg
 
 
 def loadDataFile_with_seg(filename):
     return load_h5_data_label_seg(filename)
-
-def sort_point_cloud_morton(points):
-    import libpluie as pe
-    batch_size = points.shape[0]
-    num_points = points.shape[1]
-    pc = np.zeros((num_points, 3))
-    for b in range(batch_size):
-        pc[:, :] = points[b, :, 0:3]
-        indices = pe.PointCloud.arg_sort_morton(pe.PointCloud(pc))
-        # permute 
-        points[b, :, :] = points[b, indices, :]
-    return points 
-
 
 
 class DataConsumer:
     """
     A wrapper to ModelNet40 provider
     """
-    def __init__(self, file='', num_points=4096, num_channels=1, batch_size=1, test=False, sort_cloud=False, sort_method="xyz"):
+    def __init__(self, file='', num_points=4096, num_channels=1, batch_size=1,
+                 test=False, sort_cloud=False, sort_method="xyz"):
         self.TRAIN_FILES = getDataFiles(os.path.join(BASE_DIR, file))
         self.test = test
         self.sort_cloud = sort_cloud
         self.sort_method = sort_method
 
+        self.cur_batch = 0
+        self.fn = 0
+        self.train_file_idxs = np.arange(0, len(self.TRAIN_FILES))
+
         self.batch_size = batch_size
         self.num_points = num_points
         self.num_channels = num_channels
+
+        self.current_data = 0
+        self.current_label = 0
+        self.num_batches = 0
 
         self.batch_points = np.zeros([self.batch_size, self.num_points, 3], dtype='float')
         self.batch_input = np.ones([self.batch_size, self.num_points, self.num_channels], dtype='float')
@@ -175,8 +179,6 @@ class DataConsumer:
             current_data, current_label, _ = shuffle_data(current_data, np.squeeze(current_label))
         current_label = np.squeeze(current_label)
 
-        # TODO: divisible by batch size?
-
         self.current_data = current_data
         self.current_label = current_label
 
@@ -202,18 +204,13 @@ class DataConsumer:
         if self.sort_cloud:
             if self.sort_method == "xyz":
                 jittered_data = util.sort_point_cloud_xyz(jittered_data)
-            elif self.sort_method == "morton":
-                jittered_data = sort_point_cloud_morton(jittered_data)
             else:
-                print('Unknown sort_method=', sort_method)
+                print('Unknown sort_method=', self.sort_method)
 
         label_data = self.current_label[start_idx:end_idx]
 
         self.batch_points[:] = jittered_data[:]
         self.batch_input[:] = jittered_data[:]
         self.batch_label[:] = label_data[:]
-
-        #cloud = pe.PointCloud(self.batch_points[0, :, :].astype('float32'))
-        #pe.Visualizer.show(cloud)
 
         return self.batch_points, self.batch_input, self.batch_label

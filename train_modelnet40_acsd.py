@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import modelnet_provider as modelnet
+import pointcnn2_acsd as pointcnn
 import importlib
 import util
 import os.path
@@ -8,8 +9,8 @@ import sys
 import timeit
 import datetime
 
-def train(args):
 
+def train(args):
     num_points = 2048   # ModelNet40
     num_channels = 3
 
@@ -33,7 +34,9 @@ def train(args):
     model = importlib.import_module(model_name)
     print('Using model ', model_name)
 
-    d = modelnet.DataConsumer(file='data/modelnet40_ply_hdf5_2048/train_files.txt', batch_size=batch_size, num_points=num_points, num_channels=num_channels, sort_cloud=sort_cloud, sort_method=sort_method)
+    d = modelnet.DataConsumer(file='data/modelnet40_ply_hdf5_2048/train_files.txt',
+                              batch_size=batch_size, num_points=num_points, num_channels=num_channels,
+                              sort_cloud=sort_cloud, sort_method=sort_method)
     num_class = 40
 
     print('Categories: ', num_class)
@@ -50,25 +53,25 @@ def train(args):
 
         if not use_gpu:
             config = tf.ConfigProto(
-                device_count = {'GPU': 0},
-                log_device_placement = False
+                device_count={'GPU': 0},
+                log_device_placement=False
             )
         else:
             config = tf.ConfigProto(
-                allow_soft_placement = True,
-                log_device_placement = False
+                allow_soft_placement=True,
+                log_device_placement=False
             )
 
         with tf.Session(config=config) as session:
-
-            network = model.PointConvNet(num_class)
+            network = pointcnn.PointConvNet(num_class)
 
             batch_points_placeholder = tf.placeholder(tf.float32, shape=(batch_size, num_points, 3))
             batch_input_placeholder = tf.placeholder(tf.float32, shape=(batch_size, num_points, num_channels))
-            batch_label_placeholder = tf.placeholder(tf.int32, shape=(batch_size))
+            batch_label_placeholder = tf.placeholder(tf.int32, shape=batch_size)
 
             with tf.variable_scope("pointcnn") as scope:
-                batch_prediction_placeholder = network.model(batch_points_placeholder, batch_input_placeholder, is_training=True)
+                batch_prediction_placeholder = network.model(batch_points_placeholder,
+                                                             batch_input_placeholder, is_training=True)
 
             loss = network.loss(batch_prediction_placeholder, batch_label_placeholder)
 
@@ -90,7 +93,7 @@ def train(args):
                 print('Weight file {} restored'.format(weight_file))
                 start_epoch += 1
             else:
-                print('Train from scratch');
+                print('Train from scratch')
                 init_op = tf.global_variables_initializer()
                 session.run(init_op)
                 start_epoch = 0
@@ -113,8 +116,8 @@ def train(args):
                 # one epoch
                 total_correct = 0
                 total_seen = 0
-                total_correct_class = np.zeros((num_class))
-                total_seen_class = np.zeros((num_class))
+                total_correct_class = np.zeros(num_class)
+                total_seen_class = np.zeros(num_class)
                 total_loss = 0
 
                 num_batches = 0
@@ -125,11 +128,12 @@ def train(args):
 
                     tic = timeit.default_timer()
                     feed_dict = {
-                        batch_points_placeholder : points,
-                        batch_input_placeholder : points_data,
-                        batch_label_placeholder : gt_label
+                        batch_points_placeholder: points,
+                        batch_input_placeholder: points_data,
+                        batch_label_placeholder: gt_label
                     }
-                    _, summary, loss_val, pred_val = session.run([train_op, merged, loss, batch_prediction_placeholder], feed_dict=feed_dict)
+                    _, summary, loss_val, pred_val = session.run([train_op, merged, loss, batch_prediction_placeholder],
+                                                                 feed_dict=feed_dict)
                     toc = timeit.default_timer()
                     batch_time += toc - tic
                     
@@ -141,9 +145,9 @@ def train(args):
                     total_loss += loss_val
 
                     for i in range(batch_size):
-                        l = gt_label[i]
-                        total_seen_class[l] += 1
-                        total_correct_class[l] += (pred_label[i] == l)
+                        lb = gt_label[i]
+                        total_seen_class[lb] += 1
+                        total_correct_class[lb] += (pred_label[i] == lb)
 
                     num_batches += 1
                     
@@ -173,10 +177,12 @@ def train(args):
                 print('Learning rate  : ', learning_rate_val)
 
                 with open("train_info_{}.csv".format(model_name), 'a') as f:
-                    f.write(str(datetime.datetime.now().strftime("%c")) + ', ' + \
-                            str(epoch) + ', ' + str(mean_loss) + ', ' + str(mean_accuracy) + ', ' + str(mean_class_accuracy) + '\n')
+                    f.write(str(datetime.datetime.now().strftime("%c")) + ', ' +
+                            str(epoch) + ', ' + str(mean_loss) + ', ' + str(mean_accuracy) + ', ' +
+                            str(mean_class_accuracy) + '\n')
 
                 d.next_epoch()
+
 
 if __name__ == "__main__":
     args = util.parse_arguments("param.json")
